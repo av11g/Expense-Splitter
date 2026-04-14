@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SplitWise — Expense Splitter</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0f;
+      --surface: #16161a;
+      --surface2: #1e1e24;
+      --border: #2a2a34;
+      --accent: #7c6af7;
+      --accent2: #f7c56a;
+      --accent3: #6af7b8;
+      --danger: #f76a6a;
+      --text: #e8e8f0;
+      --muted: #7878a0;
+      --radius: 14px;
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 10% 20%, rgba(124,106,247,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 90% 80%, rgba(106,247,184,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 60% 10%, rgba(247,197,106,0.06) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ─── HEADER ─────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 36px 0 40px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      border-radius: 12px;
+      display: grid; place-items: center;
+      font-size: 22px;
+    }
+    .logo-text { font-family: var(--font-display); font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-text span { color: var(--accent); }
+    .header-tagline { font-size: 13px; color: var(--muted); margin-top: 2px; letter-spacing: 0.5px; }
+    .btn-new-group {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 12px 22px;
+      border-radius: 10px;
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-new-group:hover { background: #6b5ae8; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,106,247,0.3); }
+
+    /* ─── LAYOUT ─────────────────────────────────────────────── */
+    .layout { display: grid; grid-template-columns: 320px 1fr; gap: 28px; align-items: start; }
+    @media(max-width:760px){ .layout { grid-template-columns:1fr; } }
+
+    /* ─── GROUPS SIDEBAR ─────────────────────────────────────── */
+    .sidebar-title {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .group-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .group-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .group-card:hover { border-color: var(--accent); transform: translateX(2px); }
+    .group-card:hover::before { opacity: 1; }
+    .group-card.active { border-color: var(--accent); background: rgba(124,106,247,0.08); }
+    .group-card.active::before { opacity: 1; }
+    .group-card-name { font-family: var(--font-display); font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+    .group-card-meta { display: flex; gap: 12px; }
+    .meta-chip {
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface2);
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .empty-groups {
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty-groups .big-icon { font-size: 36px; margin-bottom: 12px; }
+    .empty-groups p { font-size: 13px; }
+
+    /* ─── MAIN PANEL ─────────────────────────────────────────── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 24px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255,255,255,0.02);
+    }
+    .panel-title { font-family: var(--font-display); font-size: 20px; font-weight: 800; }
+    .panel-body { padding: 28px; }
+
+    /* ─── TABS ───────────────────────────────────────────────── */
+    .tabs { display: flex; gap: 4px; background: var(--surface2); padding: 4px; border-radius: 10px; margin-bottom: 28px; }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    .tab.active { background: var(--accent); color: #fff; }
+
+    /* ─── EXPENSES LIST ──────────────────────────────────────── */
+    .expense-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      animation: fadeUp 0.3s ease;
+    }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    .expense-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--accent), var(--accent3));
+      border-radius: 10px;
+      display: grid; place-items: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .expense-info { flex: 1; min-width: 0; }
+    .expense-desc { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .expense-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .expense-amount { font-family: var(--font-display); font-weight: 800; font-size: 16px; color: var(--accent2); white-space: nowrap; }
+    .btn-delete {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 16px; padding: 4px;
+      transition: color 0.2s;
+    }
+    .btn-delete:hover { color: var(--danger); }
+
+    /* ─── SETTLEMENTS ────────────────────────────────────────── */
+    .settlement-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      animation: fadeUp 0.3s ease;
+    }
+    .from-badge { background: rgba(247,106,106,0.15); color: var(--danger); padding: 6px 12px; border-radius: 8px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+    .to-badge { background: rgba(106,247,184,0.15); color: var(--accent3); padding: 6px 12px; border-radius: 8px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+    .arrow-icon { color: var(--muted); font-size: 18px; flex-shrink: 0; }
+    .settlement-amount { margin-left: auto; font-family: var(--font-display); font-size: 18px; font-weight: 800; color: var(--accent2); white-space: nowrap; }
+    .settlement-label { font-size: 11px; color: var(--muted); text-align: right; }
+
+    .all-settled {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+    .all-settled .check { font-size: 48px; margin-bottom: 12px; }
+    .all-settled h3 { font-family: var(--font-display); font-size: 18px; color: var(--accent3); margin-bottom: 6px; }
+    .all-settled p { font-size: 13px; }
+
+    /* ─── MEMBERS ────────────────────────────────────────────── */
+    .members-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+    .member-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px 6px 10px;
+      font-size: 13px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .member-avatar {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 11px; font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ─── ADD EXPENSE FORM ───────────────────────────────────── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media(max-width:560px){ .form-grid { grid-template-columns:1fr; } }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 12px; color: var(--muted); letter-spacing: 0.5px; font-weight: 500; }
+    input, select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    select option { background: var(--surface2); }
+
+    /* Split type toggle */
+    .split-toggle { display: flex; gap: 4px; }
+    .split-btn {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .split-btn.active { border-color: var(--accent); background: rgba(124,106,247,0.15); color: var(--accent); }
+
+    /* Custom splits */
+    .custom-splits { margin-top: 16px; }
+    .split-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .split-name { flex: 1; font-size: 13px; }
+    .split-input { width: 110px; flex-shrink: 0; }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+    .btn-submit:hover { background: #6b5ae8; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,106,247,0.3); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ─── MODAL ──────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      display: grid; place-items: center;
+      padding: 20px;
+      animation: fadeIn 0.2s;
+    }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%;
+      max-width: 480px;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from { transform:translateY(24px); opacity:0; } to { transform:none; opacity:1; } }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .modal-title { font-family: var(--font-display); font-size: 20px; font-weight: 800; }
+    .btn-close { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; transition: color 0.2s; }
+    .btn-close:hover { color: var(--text); }
+
+    /* Members input */
+    .members-input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    .members-input-row input { flex: 1; }
+    .btn-add-member {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      border-radius: 10px;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.2s;
+    }
+    .btn-add-member:hover { border-color: var(--accent); background: rgba(124,106,247,0.1); }
+    .member-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(124,106,247,0.12);
+      border: 1px solid rgba(124,106,247,0.3);
+      color: var(--accent);
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 13px;
+      margin: 4px;
+    }
+    .member-tag button { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
+
+    /* ─── TOAST ──────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-size: 13px;
+      z-index: 200;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+      animation: slideRight 0.3s ease;
+      display: flex; align-items: center; gap: 10px;
+    }
+    @keyframes slideRight { from { transform:translateX(60px); opacity:0; } to { transform:none; opacity:1; } }
+    .toast.success { border-color: var(--accent3); }
+    .toast.error { border-color: var(--danger); }
+
+    /* ─── WELCOME STATE ──────────────────────────────────────── */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 40px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+    }
+    .welcome-icon { font-size: 56px; margin-bottom: 20px; }
+    .welcome h2 { font-family: var(--font-display); font-size: 22px; color: var(--text); margin-bottom: 8px; }
+    .welcome p { font-size: 14px; max-width: 280px; line-height: 1.6; }
+
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+    /* ─── STATS ROW ──────────────────────────────────────────── */
+    .stats-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat-card {
+      flex: 1; min-width: 100px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-value { font-family: var(--font-display); font-size: 22px; font-weight: 800; color: var(--accent); }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 0.5px; }
+
+    .no-expenses { text-align:center; padding:40px; color:var(--muted); font-size:14px; }
+
+    .split-warning { font-size: 12px; color: var(--danger); margin-top: 8px; }
+    .split-ok { font-size: 12px; color: var(--accent3); margin-top: 8px; }
+
+    .delete-group-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .delete-group-btn:hover { border-color: var(--danger); color: var(--danger); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">💸</div>
+      <div>
+        <div class="logo-text">Split<span>Wise</span></div>
+        <div class="header-tagline">Track. Split. Settle.</div>
+      </div>
+    </div>
+    <button class="btn-new-group" onclick="openNewGroupModal()">
+      <span>＋</span> New Group
+    </button>
+  </header>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <aside>
+      <div class="sidebar-title">Your Groups</div>
+      <div id="groupsList"></div>
+    </aside>
+
+    <!-- MAIN PANEL -->
+    <main id="mainPanel">
+      <div class="welcome">
+        <div class="welcome-icon">🧾</div>
+        <h2>Select or create a group</h2>
+        <p>Organize expenses by trip, household, or event — then see who owes what.</p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- NEW GROUP MODAL -->
+<div id="newGroupModal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Create New Group</div>
+      <button class="btn-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label>GROUP NAME</label>
+      <input type="text" id="groupNameInput" placeholder="e.g. Goa Trip, Flat Expenses…" />
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label>ADD MEMBERS</label>
+      <div class="members-input-row">
+        <input type="text" id="memberInput" placeholder="Member name" onkeydown="if(event.key==='Enter')addMember()" />
+        <button class="btn-add-member" onclick="addMember()">＋</button>
+      </div>
+      <div id="memberTags" style="min-height:36px"></div>
+    </div>
+    <button class="btn-submit" onclick="createGroup()">Create Group</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast" style="display:none"></div>
+
+<script>
+  const API = 'http://localhost:5000/api';
+  let currentGroupId = null;
+  let currentGroupData = null;
+  let pendingMembers = [];
+  let splitType = 'equal';
+
+  // ─── COLORS ────────────────────────────────────────────────────────────────
+  const AVATAR_COLORS = [
+    'linear-gradient(135deg,#7c6af7,#6af7b8)',
+    'linear-gradient(135deg,#f7c56a,#f76a6a)',
+    'linear-gradient(135deg,#6af7b8,#6ab8f7)',
+    'linear-gradient(135deg,#f76ab8,#f7c56a)',
+    'linear-gradient(135deg,#6ab8f7,#7c6af7)',
+    'linear-gradient(135deg,#f7b86a,#6af7e6)',
+  ];
+  const ICONS = ['🍕','🍺','🎒','🏨','⛽','🎭','🍜','🎮','🚕','🛒','💊','🎵'];
+
+  function avatarColor(i){ return AVATAR_COLORS[i % AVATAR_COLORS.length]; }
+  function initial(name){ return name.trim().charAt(0).toUpperCase(); }
+  function randomIcon(){ return ICONS[Math.floor(Math.random()*ICONS.length)]; }
+
+  // ─── TOAST ─────────────────────────────────────────────────────────────────
+  function showToast(msg, type='success'){
+    const t = document.getElementById('toast');
+    t.textContent = (type==='success'?'✅ ':'❌ ') + msg;
+    t.className = `toast ${type}`;
+    t.style.display = 'flex';
+    setTimeout(()=>t.style.display='none', 3200);
+  }
+
+  // ─── MODAL ─────────────────────────────────────────────────────────────────
+  function openNewGroupModal(){
+    document.getElementById('newGroupModal').style.display='grid';
+    document.getElementById('groupNameInput').value='';
+    document.getElementById('memberInput').value='';
+    document.getElementById('memberTags').innerHTML='';
+    pendingMembers=[];
+    setTimeout(()=>document.getElementById('groupNameInput').focus(),100);
+  }
+  function closeModal(){
+    document.getElementById('newGroupModal').style.display='none';
+  }
+  document.getElementById('newGroupModal').addEventListener('click',function(e){
+    if(e.target===this) closeModal();
+  });
+
+  function addMember(){
+    const inp = document.getElementById('memberInput');
+    const name = inp.value.trim();
+    if(!name) return;
+    if(pendingMembers.includes(name)){ showToast('Member already added','error'); return; }
+    pendingMembers.push(name);
+    inp.value='';
+    renderMemberTags();
+    inp.focus();
+  }
+  function removeMember(name){
+    pendingMembers = pendingMembers.filter(m=>m!==name);
+    renderMemberTags();
+  }
+  function renderMemberTags(){
+    const el = document.getElementById('memberTags');
+    el.innerHTML = pendingMembers.map(m=>`
+      <span class="member-tag">${m}<button onclick="removeMember('${m}')">×</button></span>
+    `).join('');
+  }
+
+  async function createGroup(){
+    const name = document.getElementById('groupNameInput').value.trim();
+    if(!name){ showToast('Enter a group name','error'); return; }
+    if(pendingMembers.length<2){ showToast('Add at least 2 members','error'); return; }
+    try{
+      const r = await fetch(`${API}/groups`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name, members: pendingMembers})
+      });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error);
+      closeModal();
+      showToast(`Group "${name}" created!`);
+      await loadGroups();
+      selectGroup(d.id);
+    }catch(e){ showToast(e.message,'error'); }
+  }
+
+  // ─── GROUPS LIST ───────────────────────────────────────────────────────────
+  async function loadGroups(){
+    try{
+      const r = await fetch(`${API}/groups`);
+      const groups = await r.json();
+      renderGroupsList(groups);
+    }catch(e){
+      document.getElementById('groupsList').innerHTML=`<div class="empty-groups"><div class="big-icon">🔌</div><p>Cannot connect to backend.<br/>Start the Python server first.</p></div>`;
+    }
+  }
+
+  function renderGroupsList(groups){
+    const el = document.getElementById('groupsList');
+    if(!groups.length){
+      el.innerHTML=`<div class="empty-groups"><div class="big-icon">👥</div><p>No groups yet.<br/>Create your first one!</p></div>`;
+      return;
+    }
+    el.innerHTML = groups.map(g=>`
+      <div class="group-card ${g.id===currentGroupId?'active':''}" onclick="selectGroup(${g.id})">
+        <div class="group-card-name">${g.name}</div>
+        <div class="group-card-meta">
+          <span class="meta-chip">👥 ${g.member_count}</span>
+          <span class="meta-chip">🧾 ${g.expense_count}</span>
+          <span class="meta-chip">₹${Number(g.total_amount).toFixed(0)}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ─── GROUP DETAIL ──────────────────────────────────────────────────────────
+  async function selectGroup(id){
+    currentGroupId = id;
+    document.getElementById('mainPanel').innerHTML='<div class="loading">Loading…</div>';
+    try{
+      const r = await fetch(`${API}/groups/${id}`);
+      const data = await r.json();
+      if(!r.ok) throw new Error(data.error);
+      currentGroupData = data;
+      renderGroupPanel(data);
+      await loadGroups(); // refresh sidebar active state
+    }catch(e){
+      showToast(e.message,'error');
+    }
+  }
+
+  function renderGroupPanel(data){
+    const {group, members, expenses, settlements} = data;
+    const total = expenses.reduce((s,e)=>s+e.amount,0);
+
+    document.getElementById('mainPanel').innerHTML=`
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">${group.name}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">${members.length} members · ₹${total.toFixed(2)} total</div>
+          </div>
+          <button class="delete-group-btn" onclick="deleteGroup(${group.id},'${group.name}')">🗑 Delete</button>
+        </div>
+        <div class="panel-body">
+          <!-- Members -->
+          <div class="members-row">
+            ${members.map((m,i)=>`
+              <div class="member-chip">
+                <div class="member-avatar" style="background:${avatarColor(i)}">${initial(m.name)}</div>
+                ${m.name}
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Stats -->
+          <div class="stats-row">
+            <div class="stat-card"><div class="stat-value">${expenses.length}</div><div class="stat-label">EXPENSES</div></div>
+            <div class="stat-card"><div class="stat-value">₹${total.toFixed(0)}</div><div class="stat-label">TOTAL SPENT</div></div>
+            <div class="stat-card"><div class="stat-value">${settlements.length}</div><div class="stat-label">SETTLEMENTS</div></div>
+          </div>
+
+          <!-- Tabs -->
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab('expenses',this)">🧾 Expenses</button>
+            <button class="tab" onclick="switchTab('add',this)">＋ Add</button>
+            <button class="tab" onclick="switchTab('settle',this)">💰 Settle Up</button>
+          </div>
+
+          <div id="tabContent">
+            ${renderExpensesTab(expenses, members)}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function switchTab(tab, btn){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    const {expenses, members, settlements} = currentGroupData;
+    const el = document.getElementById('tabContent');
+    if(tab==='expenses') el.innerHTML = renderExpensesTab(expenses, members);
+    if(tab==='add') el.innerHTML = renderAddTab(members);
+    if(tab==='settle') el.innerHTML = renderSettleTab(settlements);
+  }
+
+  function renderExpensesTab(expenses, members){
+    if(!expenses.length) return `<div class="no-expenses">💸 No expenses yet — add the first one!</div>`;
+    return expenses.map(e=>`
+      <div class="expense-item">
+        <div class="expense-icon">${randomIconForId(e.id)}</div>
+        <div class="expense-info">
+          <div class="expense-desc">${e.description}</div>
+          <div class="expense-meta">Paid by <b>${e.paid_by_name}</b> · Split among ${e.splits.length}</div>
+        </div>
+        <div class="expense-amount">₹${e.amount.toFixed(2)}</div>
+        <button class="btn-delete" onclick="deleteExpense(${e.id})" title="Delete">🗑</button>
+      </div>
+    `).join('');
+  }
+
+  const iconCache = {};
+  function randomIconForId(id){
+    if(!iconCache[id]) iconCache[id]=ICONS[id % ICONS.length];
+    return iconCache[id];
+  }
+
+  function renderAddTab(members){
+    return `
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>DESCRIPTION</label>
+          <input type="text" id="expDesc" placeholder="e.g. Dinner, Hotel room…" />
+        </div>
+        <div class="form-group">
+          <label>AMOUNT (₹)</label>
+          <input type="number" id="expAmount" placeholder="0.00" min="0" step="0.01" oninput="updateSplitAmounts()" />
+        </div>
+        <div class="form-group">
+          <label>PAID BY</label>
+          <select id="expPaidBy">
+            ${members.map(m=>`<option value="${m.id}">${m.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>SPLIT TYPE</label>
+          <div class="split-toggle">
+            <button class="split-btn active" id="btnEqual" onclick="setSplitType('equal',this)">⚖️ Equal Split</button>
+            <button class="split-btn" id="btnCustom" onclick="setSplitType('custom',this)">✏️ Custom Split</button>
+          </div>
+        </div>
+        <div class="form-group full" id="customSplitsContainer" style="display:none">
+          <label>CUSTOM AMOUNTS PER PERSON</label>
+          <div class="custom-splits" id="customSplitsRows">
+            ${members.map(m=>`
+              <div class="split-row">
+                <span class="split-name">${m.name}</span>
+                <input class="split-input" type="number" id="split_${m.id}" placeholder="0.00" min="0" step="0.01" oninput="checkSplitTotal()" data-mid="${m.id}" />
+              </div>
+            `).join('')}
+          </div>
+          <div id="splitWarning"></div>
+        </div>
+      </div>
+      <button class="btn-submit" onclick="addExpense()">Add Expense</button>
+    `;
+  }
+
+  function setSplitType(type, btn){
+    splitType = type;
+    document.querySelectorAll('.split-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const cc = document.getElementById('customSplitsContainer');
+    cc.style.display = type==='custom'?'block':'none';
+  }
+
+  function updateSplitAmounts(){
+    if(splitType!=='equal') return;
+  }
+
+  function checkSplitTotal(){
+    const amount = parseFloat(document.getElementById('expAmount').value)||0;
+    const inputs = document.querySelectorAll('[id^="split_"]');
+    let total=0;
+    inputs.forEach(i=>total+=parseFloat(i.value)||0);
+    const el=document.getElementById('splitWarning');
+    const diff=Math.abs(total-amount);
+    if(amount>0&&diff>0.01){
+      el.innerHTML=`<span class="split-warning">⚠ Sum ₹${total.toFixed(2)} ≠ Total ₹${amount.toFixed(2)} (diff ₹${diff.toFixed(2)})</span>`;
+    } else if(amount>0){
+      el.innerHTML=`<span class="split-ok">✓ Splits match total</span>`;
+    }
+  }
+
+  async function addExpense(){
+    const desc=document.getElementById('expDesc').value.trim();
+    const amount=parseFloat(document.getElementById('expAmount').value);
+    const paidBy=parseInt(document.getElementById('expPaidBy').value);
+    if(!desc){showToast('Enter a description','error');return;}
+    if(!amount||amount<=0){showToast('Enter a valid amount','error');return;}
+
+    let splits={};
+    if(splitType==='custom'){
+      const inputs=document.querySelectorAll('[id^="split_"]');
+      let total=0;
+      inputs.forEach(i=>{
+        const v=parseFloat(i.value)||0;
+        splits[i.dataset.mid]=v;
+        total+=v;
+      });
+      if(Math.abs(total-amount)>0.01){showToast('Custom splits must equal total amount','error');return;}
+    }
+
+    try{
+      const r=await fetch(`${API}/groups/${currentGroupId}/expenses`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({description:desc,amount,paid_by:paidBy,split_type:splitType,splits})
+      });
+      const d=await r.json();
+      if(!r.ok)throw new Error(d.error);
+      showToast('Expense added!');
+      await selectGroup(currentGroupId);
+    }catch(e){showToast(e.message,'error');}
+  }
+
+  function renderSettleTab(settlements){
+    if(!settlements.length) return `
+      <div class="all-settled">
+        <div class="check">🎉</div>
+        <h3>All Settled Up!</h3>
+        <p>No outstanding balances in this group.</p>
+      </div>
+    `;
+    return settlements.map(s=>`
+      <div class="settlement-item">
+        <span class="from-badge">${s.from}</span>
+        <span class="arrow-icon">→</span>
+        <span class="to-badge">${s.to}</span>
+        <div style="margin-left:auto;text-align:right">
+          <div class="settlement-amount">₹${s.amount.toFixed(2)}</div>
+          <div class="settlement-label">owes</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function deleteExpense(id){
+    if(!confirm('Delete this expense?')) return;
+    try{
+      await fetch(`${API}/expenses/${id}`,{method:'DELETE'});
+      showToast('Expense deleted');
+      await selectGroup(currentGroupId);
+    }catch(e){showToast(e.message,'error');}
+  }
+
+  async function deleteGroup(id, name){
+    if(!confirm(`Delete group "${name}" and all its expenses?`)) return;
+    try{
+      await fetch(`${API}/groups/${id}`,{method:'DELETE'});
+      currentGroupId=null;
+      currentGroupData=null;
+      showToast(`Group "${name}" deleted`);
+      document.getElementById('mainPanel').innerHTML=`
+        <div class="welcome">
+          <div class="welcome-icon">🧾</div>
+          <h2>Select or create a group</h2>
+          <p>Organize expenses by trip, household, or event — then see who owes what.</p>
+        </div>`;
+      await loadGroups();
+    }catch(e){showToast(e.message,'error');}
+  }
+
+  // ─── INIT ──────────────────────────────────────────────────────────────────
+  loadGroups();
+</script>
+</body>
+</html>
